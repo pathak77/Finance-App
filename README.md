@@ -6,7 +6,6 @@
 [![Java](https://img.shields.io/badge/Java-21+-ED8B00?style=flat-square&logo=openjdk&logoColor=white)](https://java.com)
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5+-6DB33F?style=flat-square&logo=spring&logoColor=white)](https://spring.io/)
 [![gRPC](https://img.shields.io/badge/gRPC-Protobuf-244C5A?style=flat-square&logo=grpc&logoColor=white)](https://grpc.io/)
-[![Kafka](https://img.shields.io/badge/Apache_Kafka-Event_Driven-231F20?style=flat-square&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-ACID-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
 
@@ -18,7 +17,7 @@
 
 Nexus is a deeply engineered, distributed microservices platform designed to handle complex financial transactions and social graphing with strict guarantees around data integrity, concurrency, and performance. 
 
-Rather than relying on a monolithic architecture, the system is strictly bounded into independent domains (**User, Ledger, Friend, and Notification**). It leverages **gRPC** for ultra-low latency synchronous communication across bounded contexts, and **Apache Kafka** for asynchronous, event-driven eventual consistency. 
+Rather than relying on a monolithic architecture, the system is strictly bounded into independent domains (**User, Ledger, and Friend**). It leverages **gRPC** for ultra-low latency synchronous communication across bounded contexts. 
 
 This project demonstrates a deep understanding of distributed systems, concurrency control, database optimization, and modern enterprise Java.
 
@@ -33,22 +32,15 @@ graph TD
     API_Gateway --> |gRPC / Protobuf| LedgerService[Ledger Service]
     API_Gateway --> |gRPC / Protobuf| FriendService[Friend Service]
     
-    LedgerService --> |Kafka Producer| EventBus((Apache Kafka))
-    FriendService --> |Kafka Producer| EventBus
-    
-    EventBus --> |Kafka Consumer| NotificationService[Notification Service]
-    
     API_Gateway --> DB1[(User DB)]
     LedgerService --> DB2[(Ledger DB)]
     FriendService --> DB3[(Social Graph DB)]
     
     classDef core fill:#2a3d45,stroke:#fff,stroke-width:1px,color:#fff;
     classDef db fill:#3c6e71,stroke:#fff,stroke-width:1px,color:#fff;
-    classDef event fill:#d9d9d9,stroke:#000,stroke-width:1px,color:#000;
     
-    class API_Gateway,LedgerService,FriendService,NotificationService core;
+    class API_Gateway,LedgerService,FriendService core;
     class DB1,DB2,DB3 db;
-    class EventBus event;
 ```
 
 ---
@@ -65,17 +57,12 @@ REST/JSON over HTTP is human-readable but computationally expensive. To satisfy 
 - **Why?** Binary serialization dramatically reduces payload size and parsing overhead, allowing the User Service (acting as the ingress API gateway) to aggregate data from the Ledger and Friend services in fractions of a millisecond.
 - Client stubs are generated dynamically during the Maven build phase, ensuring strict type-safety across distributed network boundaries.
 
-### 3. Event-Driven Architecture (Asynchronous Decoupling)
-Not all operations require an immediate synchronous response. Features like push notifications and audit logging are completely decoupled using **Apache Kafka**.
-- **Resilience:** The core transaction pathway (Ledger) fires a Kafka event and immediately releases the thread back to the connection pool. The Notification service consumes these events asynchronously. 
-- **Backpressure Handling:** If the Notification service goes down or experiences a spike in traffic, the Ledger service remains 100% unaffected. Kafka acts as a durable buffer, guaranteeing eventual delivery without degrading core system performance.
-
-### 4. Database Optimization & Memory Protection
+### 3. Database Optimization & Memory Protection
 A common pitfall in ORM implementations is the infamous N+1 query problem and unbounded memory loading.
 - **Strict Pagination:** Endpoints querying high-volume transactional data (e.g., retrieving ledgers by date) utilize Spring Data `Pageable` interfaces. This enforces safe limits at the SQL execution level, actively preventing Out-Of-Memory (OOM) heap crashes on the JVM.
 - **Query Optimization:** Removed redundant consecutive database hits (e.g., executing `existsById` followed immediately by `findById`). Replaced with optimal, single-trip `findById().orElseThrow()` patterns to minimize database connection pool exhaustion.
 
-### 5. Architectural Immutability & Clean Code
+### 4. Architectural Immutability & Clean Code
 - **Dependency Injection:** Replaced field injection (`@Autowired`) with strictly typed constructor injection (`@RequiredArgsConstructor`). This enforces immutability at the component level and ensures Spring beans cannot be instantiated in an invalid state, drastically improving unit testability.
 - **Data Transfer Objects (DTOs):** Strict isolation between database entities and API responses. The internal schema is never leaked to the client, mapped safely via custom mapping layers.
 
@@ -85,7 +72,6 @@ A common pitfall in ORM implementations is the infamous N+1 query problem and un
 
 - **Backend:** Java 21+, Spring Boot 3.5.x, Spring Data JPA, Hibernate
 - **Microservices:** gRPC, Protocol Buffers (Protobuf), REST API
-- **Event Streaming:** Apache Kafka
 - **Database:** PostgreSQL (Production), H2 (Local Development / Testing)
 - **Infrastructure:** Docker, Docker Compose, Maven Build Lifecycle
 
